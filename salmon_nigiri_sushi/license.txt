@@ -1,0 +1,11 @@
+Model Information:
+* title:	Salmon Nigiri Sushi
+* source:	https://sketchfab.com/3d-models/salmon-nigiri-sushi-4a09a5fdbc1240f5a56abf874a4415a5
+* author:	ditovirnantio (https://sketchfab.com/ditovirnantio)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Salmon Nigiri Sushi" (https://sketchfab.com/3d-models/salmon-nigiri-sushi-4a09a5fdbc1240f5a56abf874a4415a5) by ditovirnantio (https://sketchfab.com/ditovirnantio) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

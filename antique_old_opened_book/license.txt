@@ -1,0 +1,11 @@
+Model Information:
+* title:	Antique old opened book
+* source:	https://sketchfab.com/3d-models/antique-old-opened-book-2fc707e68e2d490cbb900fb212e04bc5
+* author:	take_model (https://sketchfab.com/take_model)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Antique old opened book" (https://sketchfab.com/3d-models/antique-old-opened-book-2fc707e68e2d490cbb900fb212e04bc5) by take_model (https://sketchfab.com/take_model) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
