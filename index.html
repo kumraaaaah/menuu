@@ -1,105 +1,171 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>AR Journal Menu</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- A-Frame Library -->
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <!-- AR.js Library for A-Frame -->
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 
+<!doctype html>
+<html>
+
+<head>
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
+    
     <style>
-        .prompt {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.8); color: white;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            text-align: center; font-family: sans-serif; font-size: 1.5em; z-index: 10000;
+        .instructions-text {
+            position: absolute;
+            bottom: 30px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 16px;
+            color: white;
+            text-shadow: 0 0 8px black;
+            z-index: 9999;
+            pointer-events: none;
         }
     </style>
-</head>
-<body style="margin : 0px; overflow: hidden;">
-    <div id="loader" class="prompt">
-        <p>Loading 3D Models...</p>
-    </div>
-
-    <!-- The AR Scene using AR.js. It looks for the Hiro marker. -->
-    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;">
-        
-        <!-- Asset Management System -->
-        <a-assets timeout="60000">
-            <a-asset-item id="journal-model" src="antique_old_opened_book/scene.gltf" crossorigin="anonymous"></a-asset-item>
-            <a-asset-item id="osechi-model" src="osechi/source/polycam_osechi_adjusted.gltf" crossorigin="anonymous"></a-asset-item>
-            <a-asset-item id="salmon-sushi-model" src="salmon_nigiri_sushi/scene.gltf" crossorigin="anonymous"></a-asset-item>
-        </a-assets>
-
-        <!-- Lighting for the scene -->
-        <a-light type="ambient" color="#FFF" intensity="0.7"></a-light>
-        <a-light type="directional" color="#FFF" intensity="0.5" position="-1 2 1"></a-light>
-
-        <!-- The marker that AR.js will look for. -->
-        <a-marker preset="hiro">
-            <!-- This is the container for all your 3D models. -->
-            <!-- It will appear when the marker is detected. -->
-            <a-entity id="menu-container">
-                <a-gltf-model id="journal" src="#journal-model" scale="0.15 0.15 0.15" rotation="-90 0 0"></a-gltf-model>
-                <a-entity id="food-items-wrapper" position="0 0.1 0.15">
-                    <a-gltf-model id="osechi" class="food-item" src="#osechi-model" scale="0.3 0.3 0.3" visible="false"></a-gltf-model>
-                    <a-gltf-model id="salmon-sushi" class="food-item" src="#salmon-sushi-model" scale="0.3 0.3 0.3" visible="false"></a-gltf-model>
-                </a-entity>
-            </a-entity>
-        </a-marker>
-
-        <a-entity camera></a-entity>
-    </a-scene>
-
+    
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const loader = document.getElementById('loader');
-            const assets = document.querySelector('a-assets');
+        AFRAME.registerComponent('gesture-player', {
+            init: function () {
+                this.videoSources = [
+                     'assets/test 3.webm',
+                     'assets/sm video.webm',
+                     'assets/stan.webm',
+                ];
+                this.currentIndex = 0;
+                
+                this.marker = this.el.sceneEl.querySelector("a-marker");
+                this.videoAsset = this.el.sceneEl.querySelector("#vid");
+                this.videoEntity = this.el.querySelector("#ar-video");
+                this.target = this.videoEntity.object3D;
+                this.canvas = this.el.sceneEl.canvas;
+
+                this.touchState = {
+                    isOneFingerRotating: false, isTwoFingerManipulating: false,
+                    startDist: 0, startAngle: 0, startScale: new THREE.Vector3(),
+                    startRotation: new THREE.Euler(), lastPanPos: { x: 0, y: 0 },
+                    lastRotatePos: { x: 0, y: 0 }, touchStartTime: 0,
+                    startTouchPos: { x: 0, y: 0 }
+                };
+
+                this.onMarkerFound = this.onMarkerFound.bind(this);
+                this.handleTouchStart = this.handleTouchStart.bind(this);
+                this.handleTouchMove = this.handleTouchMove.bind(this);
+                this.handleTouchEnd = this.handleTouchEnd.bind(this);
+
+                this.marker.addEventListener('markerFound', this.onMarkerFound);
+                this.canvas.addEventListener('touchstart', this.handleTouchStart);
+                this.canvas.addEventListener('touchend', this.handleTouchEnd);
+
+                this.videoAsset.setAttribute('src', this.videoSources[this.currentIndex]);
+            },
+
+            onMarkerFound: function () {
+                this.el.setAttribute('visible', 'true');
+                this.videoAsset.play();
+            },
             
-            assets.addEventListener('loaded', () => {
-                loader.style.display = 'none';
-            });
-            
-            const menuData = { 'japanese': ['osechi', 'salmon-sushi'], 'default': ['osechi'] };
-            const urlParams = new URLSearchParams(window.location.search);
-            const cuisine = urlParams.get('cuisine') || 'default';
-            const activeMenuIds = menuData[cuisine];
-            let currentFoodIndex = 0;
+            loadVideo: function () {
+                this.videoAsset.setAttribute('src', this.videoSources[this.currentIndex]);
+                this.videoAsset.load();
+                this.videoAsset.play();
+            },
 
-            function updateFoodDisplay() {
-                document.querySelectorAll('.food-item').forEach(item => item.setAttribute('visible', 'false'));
-                const activeModelId = activeMenuIds[currentFoodIndex];
-                const activeModel = document.getElementById(activeModelId);
-                if (activeModel) activeModel.setAttribute('visible', 'true');
-            }
-
-            // Show the first item once the marker is found
-            const marker = document.querySelector('a-marker');
-            marker.addEventListener('markerFound', () => {
-                console.log('Marker Found!');
-                updateFoodDisplay();
-            });
-
-            // Swipe Logic
-            let touchStartX = 0;
-            document.body.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
-            document.body.addEventListener('touchend', e => {
-                let touchEndX = e.changedTouches[0].clientX;
-                if (Math.abs(touchStartX - touchEndX) < 50) return;
-
-                if (touchEndX < touchStartX) {
-                    currentFoodIndex = (currentFoodIndex + 1) % activeMenuIds.length;
-                } else {
-                    currentFoodIndex = (currentFoodIndex - 1 + activeMenuIds.length) % activeMenuIds.length;
+            handleTouchStart: function (evt) {
+                this.canvas.addEventListener('touchmove', this.handleTouchMove);
+                const touches = evt.touches;
+                if (touches.length === 1) {
+                    this.touchState.isOneFingerRotating = true;
+                    this.touchState.lastRotatePos = { x: touches[0].clientX, y: touches[0].clientY };
+                    this.touchState.touchStartTime = evt.timeStamp;
+                    this.touchState.startTouchPos = { x: touches[0].clientX, y: touches[0].clientY };
+                } else if (touches.length === 2) {
+                    this.touchState.isTwoFingerManipulating = true;
+                    const t0 = touches[0]; const t1 = touches[1];
+                    const dx = t0.clientX - t1.clientX; const dy = t0.clientY - t1.clientY;
+                    this.touchState.startDist = Math.sqrt(dx * dx + dy * dy);
+                    this.touchState.startAngle = Math.atan2(dy, dx);
+                    this.touchState.startScale.copy(this.target.scale);
+                    this.touchState.startRotation.copy(this.target.rotation);
+                    this.touchState.lastPanPos = { x: (t0.clientX + t1.clientX) / 2, y: (t0.clientY + t1.clientY) / 2 };
                 }
-                updateFoodDisplay();
-            });
+            },
+            handleTouchMove: function (evt) {
+                const touches = evt.touches;
+                if (this.touchState.isOneFingerRotating && touches.length === 1) {
+                    const currentPos = { x: touches[0].clientX, y: touches[0].clientY };
+                    const deltaX = currentPos.x - this.touchState.lastRotatePos.x;
+                    const deltaY = currentPos.y - this.touchState.lastRotatePos.y;
+                    this.target.rotation.y += deltaX * 0.01;
+                    this.target.rotation.x += deltaY * 0.01;
+                    this.touchState.lastRotatePos = currentPos;
+                }
+                if (this.touchState.isTwoFingerManipulating && touches.length === 2) {
+                    const t0 = touches[0]; const t1 = touches[1];
+                    const dx = t0.clientX - t1.clientX; const dy = t0.clientY - t1.clientY;
+                    const currentPanPos = { x: (t0.clientX + t1.clientX) / 2, y: (t0.clientY + t1.clientY) / 2 };
+                    const panDeltaX = currentPanPos.x - this.touchState.lastPanPos.x;
+                    const panDeltaY = currentPanPos.y - this.touchState.lastPanPos.y;
+                    this.target.position.x += panDeltaX * 0.005;
+                    this.target.position.y -= panDeltaY * 0.005;
+                    this.touchState.lastPanPos = currentPanPos;
+                    const currentDist = Math.sqrt(dx * dx + dy * dy);
+                    const scaleFactor = currentDist / this.touchState.startDist;
+                    this.target.scale.copy(this.touchState.startScale).multiplyScalar(scaleFactor);
+                    const currentAngle = Math.atan2(dy, dx);
+                    const deltaAngle = currentAngle - this.touchState.startAngle;
+                    this.target.rotation.z = this.touchState.startRotation.z - deltaAngle;
+                }
+            },
+            handleTouchEnd: function (evt) {
+                this.canvas.removeEventListener('touchmove', this.handleTouchMove);
+                if (this.touchState.isOneFingerRotating) {
+                    const touch = evt.changedTouches[0];
+                    const duration = evt.timeStamp - this.touchState.touchStartTime;
+                    const deltaX = touch.clientX - this.touchState.startTouchPos.x;
+                    const deltaY = touch.clientY - this.touchState.startTouchPos.y;
+                    const dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                    if (duration < 250 && dist < 15) {
+                        this.videoAsset.muted = !this.videoAsset.muted;
+                    } else if (duration < 500 && Math.abs(deltaX) > 40 && Math.abs(deltaY) < 30) {
+                        if (deltaX < 0) {
+                            this.currentIndex = (this.currentIndex + 1) % this.videoSources.length;
+                            this.loadVideo();
+                        } else {
+                            this.currentIndex = (this.currentIndex - 1 + this.videoSources.length) % this.videoSources.length;
+                            this.loadVideo();
+                        }
+                    }
+                }
+                this.touchState.isOneFingerRotating = false;
+                this.touchState.isTwoFingerManipulating = false;
+            }
         });
     </script>
+</head>
+
+<body style="margin: 0; overflow: hidden;">
+
+    <div class="instructions-text">Swipe ON video to view NEXT</div>
+
+    <a-scene vr-mode-ui="enabled: false" loading-screen="enabled: false;"
+        arjs='sourceType: webcam; trackingMethod: best; debugUIEnabled: false;' 
+        id="scene" embedded>
+        
+        <a-assets>
+            <video id="vid" preload="auto" response-type="arraybuffer" loop crossorigin
+                webkit-playsinline muted playsinline></video>
+        </a-assets>
+
+        <a-marker type="pattern" preset="custom" url="assets/marker.patt"></a-marker>
+        
+        <a-entity camera>
+            <a-entity id="video-player" gesture-player visible="false">
+                <a-video id="ar-video" src="#vid" scale="0.8 0.8 0.8" position="0 0 -2" rotation="0 0 0"></a-video>
+            </a-entity>
+        </a-entity>
+    </a-scene>
 </body>
 </html>
+
 
 
 
