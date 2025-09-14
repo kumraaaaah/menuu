@@ -20,12 +20,7 @@
             display: none; background-color: transparent;
             align-items: flex-end; padding-bottom: 20vh;
         }
-        #start-button {
-            display: none; /* Hidden by default */
-            font-size: 1em; padding: 15px 30px;
-            border: 2px solid white; background-color: #333;
-            color: white; border-radius: 10px; cursor: pointer;
-        }
+        /* We will use A-Frame's default button, so our custom button is no longer needed. */
     </style>
 </head>
 <body>
@@ -33,13 +28,13 @@
         <p>Loading 3D Models...</p>
     </div>
     <div id="start-prompt" class="prompt" style="display: none;">
-        <p>Models Loaded!</p>
-        <button id="start-button">Start AR</button>
+        <p>Models Loaded!<br><br>Tap the "Enter AR" button<br>at the bottom right to begin.</p>
     </div>
     <div id="ar-prompt" class="prompt">Move your phone to find a surface, then tap to place the journal.</div>
 
     <!-- The AR Scene -->
-    <a-scene webxr="requiredFeatures: hit-test, local-floor;" vr-mode-ui="enabled: false" renderer="colorManagement: true;">
+    <!-- FIX: vr-mode-ui is now explicitly enabled to show A-Frame's reliable AR button -->
+    <a-scene webxr="requiredFeatures: hit-test, local-floor;" vr-mode-ui="enabled: true;" renderer="colorManagement: true;">
         
         <!-- Asset Management System -->
         <a-assets timeout="60000">
@@ -65,7 +60,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             const loader = document.getElementById('loader');
             const startPrompt = document.getElementById('start-prompt');
-            const startButton = document.getElementById('start-button');
             const arPrompt = document.getElementById('ar-prompt');
             const sceneEl = document.querySelector('a-scene');
             const menuContainer = document.getElementById('menu-container');
@@ -85,8 +79,7 @@
             assets.addEventListener('loaded', () => {
                 console.log("DEBUG: All assets loaded.");
                 loader.style.display = 'none';
-                startPrompt.style.display = 'flex';
-                startButton.style.display = 'block';
+                startPrompt.style.display = 'flex'; // Show the new prompt
             });
 
             document.querySelectorAll('a-asset-item').forEach(asset => {
@@ -96,14 +89,8 @@
                 });
             });
 
-            startButton.addEventListener('click', () => {
-                console.log("DEBUG: Start AR button clicked.");
-                startPrompt.style.display = 'none';
-                // Programmatically enter AR mode
-                sceneEl.enterVR();
-            });
-
-            // This logic now runs after the user clicks the button and enters AR
+            // FIX: Removed the custom button click listener. A-Frame handles AR entry now.
+            // The rest of the logic is triggered by the 'enter-vr' event, which still works.
             initializeAR();
 
             function initializeAR() {
@@ -115,6 +102,7 @@
 
                 sceneEl.addEventListener('enter-vr', () => {
                     console.log("DEBUG: Entered AR mode successfully.");
+                    startPrompt.style.display = 'none'; // Hide prompt on AR entry
                     arPrompt.style.display = 'flex';
                     const session = sceneEl.xrSession;
 
@@ -176,4 +164,6 @@
     </script>
 </body>
 </html>
+
+
 
