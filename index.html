@@ -51,7 +51,8 @@
 
         <!-- The marker that AR.js will look for -->
         <a-marker preset="hiro">
-            <a-entity id="menu-container" rotation="-90 0 0">
+            <!-- The scale of this container has been adjusted to "zoom out" the view -->
+            <a-entity id="menu-container" scale="0.5 0.5 0.5" rotation="-90 0 0">
                 <!-- A simple cylinder to act as a white plate -->
                 <a-cylinder color="#FAFAFA" height="0.02" radius="0.15"></a-cylinder>
 
@@ -131,6 +132,8 @@
     </script>
 </body>
 </html>
+
+
 
 
 
