@@ -2,45 +2,29 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>AR Journal Menu (Plane Detection)</title>
+    <title>AR Journal Menu</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="AR Journal Menu using WebXR Plane Detection">
     <!-- A-Frame Library -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <!-- AR.js Library for A-Frame -->
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 
     <style>
-        /* Prompts styling */
         .prompt {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background-color: rgba(0, 0, 0, 0.8); color: white;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            text-align: center; font-family: sans-serif; font-size: 1.5em;
-            z-index: 10000;
-        }
-        #ar-prompt, #error-prompt {
-            display: none; background-color: transparent;
-            align-items: flex-end; padding-bottom: 20vh;
-        }
-        #error-prompt {
-            background-color: rgba(0, 0, 0, 0.8);
-            align-items: center;
+            text-align: center; font-family: sans-serif; font-size: 1.5em; z-index: 10000;
         }
     </style>
 </head>
-<body>
+<body style="margin : 0px; overflow: hidden;">
     <div id="loader" class="prompt">
         <p>Loading 3D Models...</p>
     </div>
-    <div id="start-prompt" class="prompt" style="display: none;">
-        <p>Models Loaded!<br><br>Tap the "Enter AR" button<br>at the bottom right to begin.</p>
-    </div>
-    <div id="ar-prompt" class="prompt">Move your phone to find a surface.</div>
-    <div id="error-prompt" class="prompt">
-        <p>Error: Your device does not support surface detection.<br>This AR feature is required for this experience.</p>
-    </div>
 
-    <!-- The AR Scene now makes hit-test an optional feature -->
-    <a-scene webxr="optionalFeatures: hit-test;" vr-mode-ui="enabled: true;" renderer="antialias: true; colorManagement: true;">
+    <!-- The AR Scene using AR.js. It looks for the Hiro marker. -->
+    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;">
         
         <!-- Asset Management System -->
         <a-assets timeout="60000">
@@ -53,158 +37,71 @@
         <a-light type="ambient" color="#FFF" intensity="0.7"></a-light>
         <a-light type="directional" color="#FFF" intensity="0.5" position="-1 2 1"></a-light>
 
-        <a-camera></a-camera>
+        <!-- The marker that AR.js will look for. -->
+        <a-marker preset="hiro">
+            <!-- This is the container for all your 3D models. -->
+            <!-- It will appear when the marker is detected. -->
+            <a-entity id="menu-container">
+                <a-gltf-model id="journal" src="#journal-model" scale="0.15 0.15 0.15" rotation="-90 0 0"></a-gltf-model>
+                <a-entity id="food-items-wrapper" position="0 0.1 0.15">
+                    <a-gltf-model id="osechi" class="food-item" src="#osechi-model" scale="0.3 0.3 0.3" visible="false"></a-gltf-model>
+                    <a-gltf-model id="salmon-sushi" class="food-item" src="#salmon-sushi-model" scale="0.3 0.3 0.3" visible="false"></a-gltf-model>
+                </a-entity>
+            </a-entity>
+        </a-marker>
 
-        <!-- This entity will manage the AR placement logic for maximum stability -->
-        <a-entity id="ar-placement-manager" ar-placement-manager></a-entity>
+        <a-entity camera></a-entity>
     </a-scene>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const loader = document.getElementById('loader');
-            const startPrompt = document.getElementById('start-prompt');
             const assets = document.querySelector('a-assets');
             
             assets.addEventListener('loaded', () => {
                 loader.style.display = 'none';
-                startPrompt.style.display = 'flex';
             });
-
-            document.querySelectorAll('a-asset-item').forEach(asset => {
-                asset.addEventListener('error', (e) => {
-                    console.error(`---!!! CRITICAL ASSET ERROR !!!---`, e);
-                    loader.innerHTML = `Error loading: <b>${e.target.id}</b>.<br>Check console for details.`;
-                });
-            });
-        });
-
-        // This component handles all AR logic for stability and compatibility
-        AFRAME.registerComponent('ar-placement-manager', {
-            init: function () {
-                this.sceneEl = this.el.sceneEl;
-                this.arPrompt = document.getElementById('ar-prompt');
-                this.startPrompt = document.getElementById('start-prompt');
-                this.errorPrompt = document.getElementById('error-prompt');
-
-                // Create the reticle (the aiming ring)
-                this.reticle = document.createElement('a-entity');
-                this.reticle.setAttribute('geometry', { primitive: 'ring', radiusInner: 0.01, radiusOuter: 0.02 });
-                this.reticle.setAttribute('material', { color: '#4CC3D9', shader: 'flat', opacity: 0.8 });
-                this.reticle.setAttribute('visible', false);
-                this.sceneEl.appendChild(this.reticle);
-
-                // Create the container for the menu
-                this.menuContainer = document.createElement('a-entity');
-                this.menuContainer.setAttribute('visible', false);
-                this.menuContainer.innerHTML = `
-                    <a-gltf-model id="journal" src="#journal-model" scale="0.15 0.15 0.15" rotation="-90 0 0"></a-gltf-model>
-                    <a-entity id="food-items-wrapper" position="0 0.1 0.15">
-                        <a-gltf-model id="osechi" class="food-item" src="#osechi-model" scale="0.3 0.3 0.3" visible="false"></a-gltf-model>
-                        <a-gltf-model id="salmon-sushi" class="food-item" src="#salmon-sushi-model" scale="0.3 0.3 0.3" visible="false"></a-gltf-model>
-                    </a-entity>
-                `;
-                this.sceneEl.appendChild(this.menuContainer);
-
-                this.sceneEl.addEventListener('enter-vr', this.onEnterAR.bind(this));
-                this.sceneEl.addEventListener('exit-vr', this.onExitAR.bind(this));
-                this.sceneEl.addEventListener('select', this.onSelect.bind(this));
-                
-                this.setupSwipeLogic();
-            },
-
-            onEnterAR: function () {
-                this.startPrompt.style.display = 'none';
-                this.hitTestSourceRequested = false;
-                this.hitTestSource = null;
-
-                const session = this.sceneEl.xrSession;
-                // Check for hit-test support AFTER entering AR
-                session.requestReferenceSpace('viewer').then(viewerSpace => {
-                    session.requestHitTestSource({ space: viewerSpace })
-                        .then(source => {
-                            this.hitTestSource = source;
-                            // Only show the placement prompt if hit-test is supported
-                            this.arPrompt.style.display = 'flex';
-                        })
-                        .catch(() => {
-                            // If hit-test fails, show the error message
-                            console.error("Hit-test feature not available.");
-                            this.errorPrompt.style.display = 'flex';
-                        });
-                });
-            },
-
-            onExitAR: function () {
-                this.arPrompt.style.display = 'none';
-                this.errorPrompt.style.display = 'none';
-                this.reticle.setAttribute('visible', false);
-                this.menuContainer.setAttribute('visible', false);
-                if (this.hitTestSource) this.hitTestSource.cancel();
-                this.hitTestSource = null;
-            },
             
-            tick: function () {
-                if (!this.sceneEl.is('ar-mode') || !this.hitTestSource) return;
+            const menuData = { 'japanese': ['osechi', 'salmon-sushi'], 'default': ['osechi'] };
+            const urlParams = new URLSearchParams(window.location.search);
+            const cuisine = urlParams.get('cuisine') || 'default';
+            const activeMenuIds = menuData[cuisine];
+            let currentFoodIndex = 0;
 
-                const frame = this.sceneEl.frame;
-                if (!frame) return;
-                const hitTestResults = frame.getHitTestResults(this.hitTestSource);
-                if (hitTestResults.length > 0) {
-                    const hit = hitTestResults[0];
-                    const pose = hit.getPose(this.sceneEl.renderer.xr.getReferenceSpace());
-                    this.reticle.setAttribute('visible', true);
-                    this.reticle.object3D.position.copy(pose.transform.position);
-                    this.reticle.object3D.quaternion.copy(pose.transform.orientation);
-                } else {
-                    this.reticle.setAttribute('visible', false);
-                }
-            },
-
-            onSelect: function () {
-                // Place the menu when a surface is tapped
-                if (this.reticle.getAttribute('visible') && !this.menuContainer.getAttribute('visible')) {
-                    const position = this.reticle.getAttribute('position');
-                    this.menuContainer.setAttribute('position', position);
-                    this.menuContainer.setAttribute('visible', true);
-                    this.reticle.setAttribute('visible', false);
-                    this.arPrompt.innerHTML = "Tap or swipe to change the dish.";
-                    this.updateFoodDisplay();
-                }
-            },
-
-            setupSwipeLogic: function() {
-                const menuData = { 'japanese': ['osechi', 'salmon-sushi'], 'default': ['osechi'] };
-                const urlParams = new URLSearchParams(window.location.search);
-                const cuisine = urlParams.get('cuisine') || 'default';
-                this.activeMenuIds = menuData[cuisine];
-                this.currentFoodIndex = 0;
-
-                let touchStartX = 0;
-                document.body.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
-                document.body.addEventListener('touchend', e => {
-                    if (!this.menuContainer.getAttribute('visible')) return;
-                    let touchEndX = e.changedTouches[0].clientX;
-                    if (Math.abs(touchStartX - touchEndX) < 50) return;
-
-                    if (touchEndX < touchStartX) {
-                        this.currentFoodIndex = (this.currentFoodIndex + 1) % this.activeMenuIds.length;
-                    } else {
-                        this.currentFoodIndex = (this.currentFoodIndex - 1 + this.activeMenuIds.length) % this.activeMenuIds.length;
-                    }
-                    this.updateFoodDisplay();
-                });
-            },
-
-            updateFoodDisplay: function() {
-                this.menuContainer.querySelectorAll('.food-item').forEach(item => item.setAttribute('visible', 'false'));
-                const activeModelId = this.activeMenuIds[this.currentFoodIndex];
-                const activeModel = this.menuContainer.querySelector(`#${activeModelId}`);
+            function updateFoodDisplay() {
+                document.querySelectorAll('.food-item').forEach(item => item.setAttribute('visible', 'false'));
+                const activeModelId = activeMenuIds[currentFoodIndex];
+                const activeModel = document.getElementById(activeModelId);
                 if (activeModel) activeModel.setAttribute('visible', 'true');
             }
+
+            // Show the first item once the marker is found
+            const marker = document.querySelector('a-marker');
+            marker.addEventListener('markerFound', () => {
+                console.log('Marker Found!');
+                updateFoodDisplay();
+            });
+
+            // Swipe Logic
+            let touchStartX = 0;
+            document.body.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+            document.body.addEventListener('touchend', e => {
+                let touchEndX = e.changedTouches[0].clientX;
+                if (Math.abs(touchStartX - touchEndX) < 50) return;
+
+                if (touchEndX < touchStartX) {
+                    currentFoodIndex = (currentFoodIndex + 1) % activeMenuIds.length;
+                } else {
+                    currentFoodIndex = (currentFoodIndex - 1 + activeMenuIds.length) % activeMenuIds.length;
+                }
+                updateFoodDisplay();
+            });
         });
     </script>
 </body>
 </html>
+
+
 
 
 
