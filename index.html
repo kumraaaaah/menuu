@@ -8,11 +8,11 @@
     <!-- A-Frame Library -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <style>
-        /* Loading and instruction prompts */
+        /* Prompts and buttons styling */
         .prompt {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background-color: rgba(0, 0, 0, 0.8); color: white;
-            display: flex; justify-content: center; align-items: center;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
             text-align: center; font-family: sans-serif; font-size: 1.5em;
             z-index: 10000;
         }
@@ -20,17 +20,28 @@
             display: none; background-color: transparent;
             align-items: flex-end; padding-bottom: 20vh;
         }
+        #start-button {
+            display: none; /* Hidden by default */
+            font-size: 1em; padding: 15px 30px;
+            border: 2px solid white; background-color: #333;
+            color: white; border-radius: 10px; cursor: pointer;
+        }
     </style>
 </head>
 <body>
-    <div id="loader" class="prompt">Loading 3D Models...</div>
+    <div id="loader" class="prompt">
+        <p>Loading 3D Models...</p>
+    </div>
+    <div id="start-prompt" class="prompt" style="display: none;">
+        <p>Models Loaded!</p>
+        <button id="start-button">Start AR</button>
+    </div>
     <div id="ar-prompt" class="prompt">Move your phone to find a surface, then tap to place the journal.</div>
 
     <!-- The AR Scene -->
-    <a-scene webxr="requiredFeatures: hit-test, local-floor;" vr-mode-ui="enabled: false">
+    <a-scene webxr="requiredFeatures: hit-test, local-floor;" vr-mode-ui="enabled: false" renderer="colorManagement: true;">
         
         <!-- Asset Management System -->
-        <!-- The paths here are confirmed to be correct based on your screenshots. -->
         <a-assets timeout="60000">
             <a-asset-item id="journal-model" src="antique_old_opened_book/scene.gltf" crossorigin="anonymous"></a-asset-item>
             <a-asset-item id="osechi-model" src="osechi/source/polycam_osechi_adjusted.gltf" crossorigin="anonymous"></a-asset-item>
@@ -40,10 +51,7 @@
         <a-camera position="0 1.2 0"></a-camera>
 
         <a-entity id="menu-container" visible="false">
-            <!-- FIX: Changed rotation to make the book lie flat and adjusted scale. -->
             <a-gltf-model id="journal" src="#journal-model" scale="0.15 0.15 0.15" rotation="-90 0 0"></a-gltf-model>
-            
-            <!-- FIX: Adjusted position to be clearly above the book and increased scale. -->
             <a-entity id="food-items-wrapper" position="0 0.1 0.15">
                 <a-gltf-model id="osechi" class="food-item" src="#osechi-model" scale="0.3 0.3 0.3" visible="false"></a-gltf-model>
                 <a-gltf-model id="salmon-sushi" class="food-item" src="#salmon-sushi-model" scale="0.3 0.3 0.3" visible="false"></a-gltf-model>
@@ -56,6 +64,8 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const loader = document.getElementById('loader');
+            const startPrompt = document.getElementById('start-prompt');
+            const startButton = document.getElementById('start-button');
             const arPrompt = document.getElementById('ar-prompt');
             const sceneEl = document.querySelector('a-scene');
             const menuContainer = document.getElementById('menu-container');
@@ -69,27 +79,32 @@
                 document.querySelectorAll('.food-item').forEach(item => item.setAttribute('visible', 'false'));
                 const activeModelId = activeMenuIds[currentFoodIndex];
                 const activeModel = document.getElementById(activeModelId);
-                if (activeModel) {
-                    activeModel.setAttribute('visible', 'true');
-                } else {
-                    console.error("DEBUG: Could not find model in scene with ID:", activeModelId);
-                }
+                if (activeModel) activeModel.setAttribute('visible', 'true');
             }
             
             assets.addEventListener('loaded', () => {
-                console.log("DEBUG: All assets have been processed by the loader.");
+                console.log("DEBUG: All assets loaded.");
                 loader.style.display = 'none';
-                initializeAR();
+                startPrompt.style.display = 'flex';
+                startButton.style.display = 'block';
             });
 
             document.querySelectorAll('a-asset-item').forEach(asset => {
                 asset.addEventListener('error', (e) => {
-                    console.error(`---!!! CRITICAL ASSET ERROR !!!---
-                    Asset with ID '${e.target.id}' failed to load.
-                    Path specified in HTML: '${e.target.getAttribute('src')}'`);
+                    console.error(`---!!! CRITICAL ASSET ERROR !!!---`, e);
                     loader.innerHTML = `Error loading: <b>${e.target.id}</b>.<br>Check console for details.`;
                 });
             });
+
+            startButton.addEventListener('click', () => {
+                console.log("DEBUG: Start AR button clicked.");
+                startPrompt.style.display = 'none';
+                // Programmatically enter AR mode
+                sceneEl.enterVR();
+            });
+
+            // This logic now runs after the user clicks the button and enters AR
+            initializeAR();
 
             function initializeAR() {
                 const urlParams = new URLSearchParams(window.location.search);
@@ -99,25 +114,20 @@
                 let hitTestSource = null;
 
                 sceneEl.addEventListener('enter-vr', () => {
-                    console.log("DEBUG: Entered AR mode.");
+                    console.log("DEBUG: Entered AR mode successfully.");
                     arPrompt.style.display = 'flex';
                     const session = sceneEl.xrSession;
 
                     session.requestReferenceSpace('viewer').then((viewerSpace) => {
                         session.requestHitTestSource({ space: viewerSpace })
-                            .then((source) => {
-                                console.log("DEBUG: Hit test source obtained successfully.");
-                                hitTestSource = source;
-                            })
+                            .then((source) => hitTestSource = source)
                             .catch(err => console.error("DEBUG: Error obtaining hit test source.", err));
                     });
-
                     session.addEventListener('select', onSelect);
                 });
 
                 function onSelect() {
                     if (reticle.getAttribute('visible') && !menuContainer.getAttribute('visible')) {
-                        console.log("DEBUG: Screen selected to place object.");
                         const position = reticle.getAttribute('position');
                         menuContainer.setAttribute('position', position);
                         menuContainer.setAttribute('visible', 'true');
@@ -166,13 +176,4 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
 
