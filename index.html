@@ -7,8 +7,6 @@
     <meta name="description" content="AR Journal Menu using WebXR">
     <!-- A-Frame Library -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <!-- A-Frame AR Hit Test Component (more stable) -->
-    <script src="https://unpkg.com/aframe-ar-hit-test-component@0.5.0/dist/aframe-ar-hit-test-component.min.js"></script>
 
     <style>
         /* Prompts styling */
@@ -32,10 +30,10 @@
     <div id="start-prompt" class="prompt" style="display: none;">
         <p>Models Loaded!<br><br>Tap the "Enter AR" button<br>at the bottom right to begin.</p>
     </div>
-    <div id="ar-prompt" class="prompt">Move your phone to find a surface, then tap to place the journal.</div>
+    <div id="ar-prompt" class="prompt">Move your phone to find a surface.</div>
 
-    <!-- The AR Scene now uses the ar-hit-test component -->
-    <a-scene webxr="requiredFeatures: hit-test, dom-overlay; optionalFeatures: local-floor;" vr-mode-ui="enabled: true;" ar-hit-test="target: #reticle; type:map;">
+    <!-- The AR Scene -->
+    <a-scene webxr="requiredFeatures: hit-test;" vr-mode-ui="enabled: true;" renderer="antialias: true; colorManagement: true;">
         
         <!-- Asset Management System -->
         <a-assets timeout="60000">
@@ -50,38 +48,15 @@
 
         <a-camera></a-camera>
 
-        <a-entity id="menu-container" visible="false">
-            <a-gltf-model id="journal" src="#journal-model" scale="0.15 0.15 0.15" rotation="-90 0 0"></a-gltf-model>
-            <a-entity id="food-items-wrapper" position="0 0.1 0.15">
-                <a-gltf-model id="osechi" class="food-item" src="#osechi-model" scale="0.3 0.3 0.3" visible="false"></a-gltf-model>
-                <a-gltf-model id="salmon-sushi" class="food-item" src="#salmon-sushi-model" scale="0.3 0.3 0.3" visible="false"></a-gltf-model>
-            </a-entity>
-        </a-entity>
-
-        <!-- The reticle will be managed automatically by the ar-hit-test component -->
-        <a-entity id="reticle" geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.02" material="color: #4CC3D9; shader: flat; opacity: 0.8"></a-entity>
+        <!-- The reticle and menu container will be managed by our new component -->
+        <a-entity id="ar-placement-manager" ar-placement-manager></a-entity>
     </a-scene>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const loader = document.getElementById('loader');
             const startPrompt = document.getElementById('start-prompt');
-            const arPrompt = document.getElementById('ar-prompt');
-            const sceneEl = document.querySelector('a-scene');
-            const menuContainer = document.getElementById('menu-container');
             const assets = document.querySelector('a-assets');
-            const reticle = document.getElementById('reticle');
-
-            const menuData = { 'japanese': ['osechi', 'salmon-sushi'], 'default': ['osechi'] };
-            let currentFoodIndex = 0;
-            let activeMenuIds = [];
-
-            function updateFoodDisplay() {
-                document.querySelectorAll('.food-item').forEach(item => item.setAttribute('visible', 'false'));
-                const activeModelId = activeMenuIds[currentFoodIndex];
-                const activeModel = document.getElementById(activeModelId);
-                if (activeModel) activeModel.setAttribute('visible', 'true');
-            }
             
             assets.addEventListener('loaded', () => {
                 loader.style.display = 'none';
@@ -94,52 +69,129 @@
                     loader.innerHTML = `Error loading: <b>${e.target.id}</b>.<br>Check console for details.`;
                 });
             });
+        });
 
-            const urlParams = new URLSearchParams(window.location.search);
-            const cuisine = urlParams.get('cuisine') || 'default';
-            activeMenuIds = menuData[cuisine];
+        // This new component handles all AR logic for maximum stability
+        AFRAME.registerComponent('ar-placement-manager', {
+            init: function () {
+                this.sceneEl = this.el.sceneEl;
+                this.arPrompt = document.getElementById('ar-prompt');
+                this.startPrompt = document.getElementById('start-prompt');
 
-            sceneEl.addEventListener('enter-vr', () => {
-                startPrompt.style.display = 'none';
-                arPrompt.style.display = 'flex';
-            });
+                // Create reticle
+                this.reticle = document.createElement('a-entity');
+                this.reticle.setAttribute('geometry', { primitive: 'ring', radiusInner: 0.01, radiusOuter: 0.02 });
+                this.reticle.setAttribute('material', { color: '#4CC3D9', shader: 'flat', opacity: 0.8 });
+                this.reticle.setAttribute('visible', false);
+                this.sceneEl.appendChild(this.reticle);
+
+                // Create menu container
+                this.menuContainer = document.createElement('a-entity');
+                this.menuContainer.setAttribute('visible', false);
+                this.menuContainer.innerHTML = `
+                    <a-gltf-model id="journal" src="#journal-model" scale="0.15 0.15 0.15" rotation="-90 0 0"></a-gltf-model>
+                    <a-entity id="food-items-wrapper" position="0 0.1 0.15">
+                        <a-gltf-model id="osechi" class="food-item" src="#osechi-model" scale="0.3 0.3 0.3" visible="false"></a-gltf-model>
+                        <a-gltf-model id="salmon-sushi" class="food-item" src="#salmon-sushi-model" scale="0.3 0.3 0.3" visible="false"></a-gltf-model>
+                    </a-entity>
+                `;
+                this.sceneEl.appendChild(this.menuContainer);
+
+                this.sceneEl.addEventListener('enter-vr', this.onEnterAR.bind(this));
+                this.sceneEl.addEventListener('exit-vr', this.onExitAR.bind(this));
+                this.sceneEl.addEventListener('select', this.onSelect.bind(this));
+                
+                this.setupSwipeLogic();
+            },
+
+            onEnterAR: function () {
+                this.startPrompt.style.display = 'none';
+                this.arPrompt.style.display = 'flex';
+                this.hitTestSourceRequested = false;
+                this.hitTestSource = null;
+            },
+
+            onExitAR: function () {
+                this.arPrompt.style.display = 'none';
+                this.reticle.setAttribute('visible', false);
+                this.menuContainer.setAttribute('visible', false);
+                if (this.hitTestSource) this.hitTestSource.cancel();
+                this.hitTestSource = null;
+            },
             
-            // A more reliable way to listen for a tap on the screen to place the object
-            document.body.addEventListener('click', () => {
-                if (sceneEl.is('ar-mode') && reticle.object3D.visible && !menuContainer.getAttribute('visible')) {
-                    const position = reticle.getAttribute('position');
-                    menuContainer.setAttribute('position', position);
-                    menuContainer.setAttribute('visible', 'true');
-                    
-                    reticle.setAttribute('visible', 'false');
-                    arPrompt.style.display = 'none';
+            tick: function () {
+                if (!this.sceneEl.is('ar-mode')) return;
 
-                    // Disable the hit-test component to lock the position
-                    sceneEl.setAttribute('ar-hit-test', 'enabled', false);
-
-                    updateFoodDisplay();
+                if (!this.hitTestSourceRequested) {
+                    const session = this.sceneEl.xrSession;
+                    session.requestReferenceSpace('viewer').then(viewerSpace => {
+                        session.requestHitTestSource({ space: viewerSpace })
+                            .then(source => this.hitTestSource = source);
+                    });
+                    this.hitTestSourceRequested = true;
                 }
-            });
 
-            // Swipe Logic
-            let touchStartX = 0;
-            document.body.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
-            document.body.addEventListener('touchend', e => {
-                if (!menuContainer.getAttribute('visible')) return;
-                let touchEndX = e.changedTouches[0].clientX;
-                if (Math.abs(touchStartX - touchEndX) < 50) return;
-
-                if (touchEndX < touchStartX) {
-                    currentFoodIndex = (currentFoodIndex + 1) % activeMenuIds.length;
-                } else {
-                    currentFoodIndex = (currentFoodIndex - 1 + activeMenuIds.length) % activeMenuIds.length;
+                if (this.hitTestSource) {
+                    const frame = this.sceneEl.frame;
+                    if (!frame) return;
+                    const hitTestResults = frame.getHitTestResults(this.hitTestSource);
+                    if (hitTestResults.length > 0) {
+                        const hit = hitTestResults[0];
+                        const pose = hit.getPose(this.sceneEl.renderer.xr.getReferenceSpace());
+                        this.reticle.setAttribute('visible', true);
+                        this.reticle.setAttribute('position', pose.transform.position);
+                    } else {
+                        this.reticle.setAttribute('visible', false);
+                    }
                 }
-                updateFoodDisplay();
-            });
+            },
+
+            onSelect: function () {
+                if (this.reticle.getAttribute('visible') && !this.menuContainer.getAttribute('visible')) {
+                    const position = this.reticle.getAttribute('position');
+                    this.menuContainer.setAttribute('position', position);
+                    this.menuContainer.setAttribute('visible', true);
+                    this.reticle.setAttribute('visible', false);
+                    this.arPrompt.innerHTML = "Tap or swipe to change the dish.";
+                    this.updateFoodDisplay();
+                }
+            },
+
+            setupSwipeLogic: function() {
+                const menuData = { 'japanese': ['osechi', 'salmon-sushi'], 'default': ['osechi'] };
+                const urlParams = new URLSearchParams(window.location.search);
+                const cuisine = urlParams.get('cuisine') || 'default';
+                this.activeMenuIds = menuData[cuisine];
+                this.currentFoodIndex = 0;
+
+                let touchStartX = 0;
+                document.body.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+                document.body.addEventListener('touchend', e => {
+                    if (!this.menuContainer.getAttribute('visible')) return;
+                    let touchEndX = e.changedTouches[0].clientX;
+                    if (Math.abs(touchStartX - touchEndX) < 50) return;
+
+                    if (touchEndX < touchStartX) {
+                        this.currentFoodIndex = (this.currentFoodIndex + 1) % this.activeMenuIds.length;
+                    } else {
+                        this.currentFoodIndex = (this.currentFoodIndex - 1 + this.activeMenuIds.length) % this.activeMenuIds.length;
+                    }
+                    this.updateFoodDisplay();
+                });
+            },
+
+            updateFoodDisplay: function() {
+                this.menuContainer.querySelectorAll('.food-item').forEach(item => item.setAttribute('visible', 'false'));
+                const activeModelId = this.activeMenuIds[this.currentFoodIndex];
+                const activeModel = this.menuContainer.querySelector(`#${activeModelId}`);
+                if (activeModel) activeModel.setAttribute('visible', 'true');
+            }
         });
     </script>
 </body>
 </html>
+
+
 
 
 
