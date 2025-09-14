@@ -30,11 +30,7 @@
     <a-scene webxr="requiredFeatures: hit-test, local-floor;" vr-mode-ui="enabled: false">
         
         <!-- Asset Management System -->
-        <!-- 
-            FINAL CODE: The paths below have been corrected to match your screenshots.
-            - Removed the incorrect 'assets/' parent folder.
-            - Corrected the filename for the osechi model.
-        -->
+        <!-- The paths here are confirmed to be correct based on your screenshots. -->
         <a-assets timeout="60000">
             <a-asset-item id="journal-model" src="antique_old_opened_book/scene.gltf" crossorigin="anonymous"></a-asset-item>
             <a-asset-item id="osechi-model" src="osechi/source/polycam_osechi_adjusted.gltf" crossorigin="anonymous"></a-asset-item>
@@ -44,10 +40,13 @@
         <a-camera position="0 1.2 0"></a-camera>
 
         <a-entity id="menu-container" visible="false">
-            <a-gltf-model id="journal" src="#journal-model" scale="0.1 0.1 0.1" rotation="0 0 0"></a-gltf-model>
-            <a-entity id="food-items-wrapper" position="0 0.05 0">
-                <a-gltf-model id="osechi" class="food-item" src="#osechi-model" scale="0.2 0.2 0.2" visible="false"></a-gltf-model>
-                <a-gltf-model id="salmon-sushi" class="food-item" src="#salmon-sushi-model" scale="0.2 0.2 0.2" visible="false"></a-gltf-model>
+            <!-- FIX: Changed rotation to make the book lie flat and adjusted scale. -->
+            <a-gltf-model id="journal" src="#journal-model" scale="0.15 0.15 0.15" rotation="-90 0 0"></a-gltf-model>
+            
+            <!-- FIX: Adjusted position to be clearly above the book and increased scale. -->
+            <a-entity id="food-items-wrapper" position="0 0.1 0.15">
+                <a-gltf-model id="osechi" class="food-item" src="#osechi-model" scale="0.3 0.3 0.3" visible="false"></a-gltf-model>
+                <a-gltf-model id="salmon-sushi" class="food-item" src="#salmon-sushi-model" scale="0.3 0.3 0.3" visible="false"></a-gltf-model>
             </a-entity>
         </a-entity>
 
@@ -87,14 +86,7 @@
                 asset.addEventListener('error', (e) => {
                     console.error(`---!!! CRITICAL ASSET ERROR !!!---
                     Asset with ID '${e.target.id}' failed to load.
-                    Path specified in HTML: '${e.target.getAttribute('src')}'
-                    
-                    TROUBLESHOOTING:
-                    1. Is the file path above PERFECTLY correct?
-                    2. Does the file exist at that location in your GitHub repo?
-                    3. Is the filename (e.g., 'scene.gltf') EXACTLY right? Check for typos.
-                    4. Are all its required .bin and texture files in the same folder?
-                    ---------------------------------`);
+                    Path specified in HTML: '${e.target.getAttribute('src')}'`);
                     loader.innerHTML = `Error loading: <b>${e.target.id}</b>.<br>Check console for details.`;
                 });
             });
@@ -174,6 +166,8 @@
     </script>
 </body>
 </html>
+
+
 
 
 
