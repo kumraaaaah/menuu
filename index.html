@@ -17,9 +17,13 @@
             text-align: center; font-family: sans-serif; font-size: 1.5em;
             z-index: 10000;
         }
-        #ar-prompt {
+        #ar-prompt, #error-prompt {
             display: none; background-color: transparent;
             align-items: flex-end; padding-bottom: 20vh;
+        }
+        #error-prompt {
+            background-color: rgba(0, 0, 0, 0.8);
+            align-items: center;
         }
     </style>
 </head>
@@ -31,9 +35,12 @@
         <p>Models Loaded!<br><br>Tap the "Enter AR" button<br>at the bottom right to begin.</p>
     </div>
     <div id="ar-prompt" class="prompt">Move your phone to find a surface.</div>
+    <div id="error-prompt" class="prompt">
+        <p>Error: Your device does not support surface detection.<br>This AR feature is required for this experience.</p>
+    </div>
 
-    <!-- The AR Scene -->
-    <a-scene webxr="requiredFeatures: hit-test;" vr-mode-ui="enabled: true;" renderer="antialias: true; colorManagement: true;">
+    <!-- The AR Scene now makes hit-test an optional feature -->
+    <a-scene webxr="optionalFeatures: hit-test;" vr-mode-ui="enabled: true;" renderer="antialias: true; colorManagement: true;">
         
         <!-- Asset Management System -->
         <a-assets timeout="60000">
@@ -77,6 +84,7 @@
                 this.sceneEl = this.el.sceneEl;
                 this.arPrompt = document.getElementById('ar-prompt');
                 this.startPrompt = document.getElementById('start-prompt');
+                this.errorPrompt = document.getElementById('error-prompt');
 
                 // Create the reticle (the aiming ring)
                 this.reticle = document.createElement('a-entity');
@@ -106,13 +114,29 @@
 
             onEnterAR: function () {
                 this.startPrompt.style.display = 'none';
-                this.arPrompt.style.display = 'flex';
                 this.hitTestSourceRequested = false;
                 this.hitTestSource = null;
+
+                const session = this.sceneEl.xrSession;
+                // Check for hit-test support AFTER entering AR
+                session.requestReferenceSpace('viewer').then(viewerSpace => {
+                    session.requestHitTestSource({ space: viewerSpace })
+                        .then(source => {
+                            this.hitTestSource = source;
+                            // Only show the placement prompt if hit-test is supported
+                            this.arPrompt.style.display = 'flex';
+                        })
+                        .catch(() => {
+                            // If hit-test fails, show the error message
+                            console.error("Hit-test feature not available.");
+                            this.errorPrompt.style.display = 'flex';
+                        });
+                });
             },
 
             onExitAR: function () {
                 this.arPrompt.style.display = 'none';
+                this.errorPrompt.style.display = 'none';
                 this.reticle.setAttribute('visible', false);
                 this.menuContainer.setAttribute('visible', false);
                 if (this.hitTestSource) this.hitTestSource.cancel();
@@ -120,32 +144,19 @@
             },
             
             tick: function () {
-                if (!this.sceneEl.is('ar-mode')) return;
+                if (!this.sceneEl.is('ar-mode') || !this.hitTestSource) return;
 
-                // Request hit-test source once
-                if (!this.hitTestSourceRequested) {
-                    const session = this.sceneEl.xrSession;
-                    session.requestReferenceSpace('viewer').then(viewerSpace => {
-                        session.requestHitTestSource({ space: viewerSpace })
-                            .then(source => this.hitTestSource = source);
-                    });
-                    this.hitTestSourceRequested = true;
-                }
-
-                // Use the hit-test source to find a surface
-                if (this.hitTestSource) {
-                    const frame = this.sceneEl.frame;
-                    if (!frame) return;
-                    const hitTestResults = frame.getHitTestResults(this.hitTestSource);
-                    if (hitTestResults.length > 0) {
-                        const hit = hitTestResults[0];
-                        const pose = hit.getPose(this.sceneEl.renderer.xr.getReferenceSpace());
-                        this.reticle.setAttribute('visible', true);
-                        this.reticle.object3D.position.copy(pose.transform.position);
-                        this.reticle.object3D.quaternion.copy(pose.transform.orientation);
-                    } else {
-                        this.reticle.setAttribute('visible', false);
-                    }
+                const frame = this.sceneEl.frame;
+                if (!frame) return;
+                const hitTestResults = frame.getHitTestResults(this.hitTestSource);
+                if (hitTestResults.length > 0) {
+                    const hit = hitTestResults[0];
+                    const pose = hit.getPose(this.sceneEl.renderer.xr.getReferenceSpace());
+                    this.reticle.setAttribute('visible', true);
+                    this.reticle.object3D.position.copy(pose.transform.position);
+                    this.reticle.object3D.quaternion.copy(pose.transform.orientation);
+                } else {
+                    this.reticle.setAttribute('visible', false);
                 }
             },
 
@@ -194,6 +205,8 @@
     </script>
 </body>
 </html>
+
+
 
 
 
