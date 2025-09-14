@@ -31,15 +31,14 @@
         
         <!-- Asset Management System -->
         <!-- 
-            CRITICAL CHECKPOINT: If the app fails, the error is almost certainly here.
-            1. The `src` path must be a PERFECT match to your folder/file structure.
-            2. The filename inside the folder (e.g., 'journal.gltf') must be EXACT. Many downloaded models use 'scene.gltf' by default. You MUST check this.
-            3. All associated files (.bin, textures) must be in the same folder.
+            UPDATED CODE: I have changed the filenames below to 'scene.gltf', 
+            which is a very common default name for downloaded models.
+            If this still fails, you MUST check your GitHub folders and see what the .gltf files are actually named.
         -->
         <a-assets timeout="60000">
-            <a-asset-item id="journal-model" src="assets/antique_old_opened_book/journal.gltf" crossorigin="anonymous"></a-asset-item>
-            <a-asset-item id="osechi-model" src="assets/osechi/source/polycam_osechi_adjusted.gltf" crossorigin="anonymous"></a-asset-item>
-            <a-asset-item id="salmon-sushi-model" src="assets/salmon_nigiri_sushi/salmon.gltf" crossorigin="anonymous"></a-asset-item>
+            <a-asset-item id="journal-model" src="assets/antique_old_opened_book/scene.gltf" crossorigin="anonymous"></a-asset-item>
+            <a-asset-item id="osechi-model" src="assets/osechi/source/scene.gltf" crossorigin="anonymous"></a-asset-item>
+            <a-asset-item id="salmon-sushi-model" src="assets/salmon_nigiri_sushi/scene.gltf" crossorigin="anonymous"></a-asset-item>
         </a-assets>
 
         <a-camera position="0 1.2 0"></a-camera>
@@ -93,7 +92,7 @@
                     TROUBLESHOOTING:
                     1. Is the file path above PERFECTLY correct?
                     2. Does the file exist at that location in your GitHub repo?
-                    3. Is the filename (e.g., 'journal.gltf') EXACTLY right? Check for typos.
+                    3. Is the filename (e.g., 'scene.gltf') EXACTLY right? Check for typos.
                     4. Are all its required .bin and texture files in the same folder?
                     ---------------------------------`);
                     loader.innerHTML = `Error loading: <b>${e.target.id}</b>.<br>Check console for details.`;
@@ -175,5 +174,7 @@
     </script>
 </body>
 </html>
+
+
 
 
