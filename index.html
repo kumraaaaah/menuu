@@ -2,9 +2,9 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>AR Journal Menu</title>
+    <title>AR Journal Menu (Plane Detection)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="AR Journal Menu using WebXR">
+    <meta name="description" content="AR Journal Menu using WebXR Plane Detection">
     <!-- A-Frame Library -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
@@ -48,7 +48,7 @@
 
         <a-camera></a-camera>
 
-        <!-- The reticle and menu container will be managed by our new component -->
+        <!-- This entity will manage the AR placement logic for maximum stability -->
         <a-entity id="ar-placement-manager" ar-placement-manager></a-entity>
     </a-scene>
 
@@ -71,21 +71,21 @@
             });
         });
 
-        // This new component handles all AR logic for maximum stability
+        // This component handles all AR logic for stability and compatibility
         AFRAME.registerComponent('ar-placement-manager', {
             init: function () {
                 this.sceneEl = this.el.sceneEl;
                 this.arPrompt = document.getElementById('ar-prompt');
                 this.startPrompt = document.getElementById('start-prompt');
 
-                // Create reticle
+                // Create the reticle (the aiming ring)
                 this.reticle = document.createElement('a-entity');
                 this.reticle.setAttribute('geometry', { primitive: 'ring', radiusInner: 0.01, radiusOuter: 0.02 });
                 this.reticle.setAttribute('material', { color: '#4CC3D9', shader: 'flat', opacity: 0.8 });
                 this.reticle.setAttribute('visible', false);
                 this.sceneEl.appendChild(this.reticle);
 
-                // Create menu container
+                // Create the container for the menu
                 this.menuContainer = document.createElement('a-entity');
                 this.menuContainer.setAttribute('visible', false);
                 this.menuContainer.innerHTML = `
@@ -122,6 +122,7 @@
             tick: function () {
                 if (!this.sceneEl.is('ar-mode')) return;
 
+                // Request hit-test source once
                 if (!this.hitTestSourceRequested) {
                     const session = this.sceneEl.xrSession;
                     session.requestReferenceSpace('viewer').then(viewerSpace => {
@@ -131,6 +132,7 @@
                     this.hitTestSourceRequested = true;
                 }
 
+                // Use the hit-test source to find a surface
                 if (this.hitTestSource) {
                     const frame = this.sceneEl.frame;
                     if (!frame) return;
@@ -139,7 +141,8 @@
                         const hit = hitTestResults[0];
                         const pose = hit.getPose(this.sceneEl.renderer.xr.getReferenceSpace());
                         this.reticle.setAttribute('visible', true);
-                        this.reticle.setAttribute('position', pose.transform.position);
+                        this.reticle.object3D.position.copy(pose.transform.position);
+                        this.reticle.object3D.quaternion.copy(pose.transform.orientation);
                     } else {
                         this.reticle.setAttribute('visible', false);
                     }
@@ -147,6 +150,7 @@
             },
 
             onSelect: function () {
+                // Place the menu when a surface is tapped
                 if (this.reticle.getAttribute('visible') && !this.menuContainer.getAttribute('visible')) {
                     const position = this.reticle.getAttribute('position');
                     this.menuContainer.setAttribute('position', position);
@@ -190,6 +194,8 @@
     </script>
 </body>
 </html>
+
+
 
 
 
