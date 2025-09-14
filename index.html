@@ -3,88 +3,177 @@
 <head>
     <meta charset="utf-8">
     <title>AR Journal Menu</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="AR Journal Menu using A-Frame">
+    <!-- A-Frame Library -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <style>
+        /* Loading and instruction prompts */
+        .prompt {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.8); color: white;
+            display: flex; justify-content: center; align-items: center;
+            text-align: center; font-family: sans-serif; font-size: 1.5em;
+            z-index: 10000;
+        }
+        #ar-prompt {
+            display: none; background-color: transparent;
+            align-items: flex-end; padding-bottom: 20vh;
+        }
+    </style>
 </head>
 <body>
+    <div id="loader" class="prompt">Loading 3D Models...</div>
+    <div id="ar-prompt" class="prompt">Move your phone to find a surface, then tap to place the journal.</div>
+
+    <!-- The AR Scene -->
     <a-scene webxr="requiredFeatures: hit-test, local-floor;" vr-mode-ui="enabled: false">
         
-        <a-assets>
-            <a-asset-item id="journal-model" src="assets/journal.glb"></a-asset-item>
-
-            <video id="pasta-video" autoplay loop="true" crossOrigin="anonymous" src="assets/pasta.mp4"></video>
-            <video id="pizza-video" autoplay loop="true" crossOrigin="anonymous" src="assets/pizza.mp4"></video>
+        <!-- Asset Management System -->
+        <!-- 
+            CRITICAL CHECKPOINT: If the app fails, the error is almost certainly here.
+            1. The `src` path must be a PERFECT match to your folder/file structure.
+            2. The filename inside the folder (e.g., 'journal.gltf') must be EXACT. Many downloaded models use 'scene.gltf' by default. You MUST check this.
+            3. All associated files (.bin, textures) must be in the same folder.
+        -->
+        <a-assets timeout="60000">
+            <a-asset-item id="journal-model" src="assets/antique_old_opened_book/journal.gltf" crossorigin="anonymous"></a-asset-item>
+            <a-asset-item id="osechi-model" src="assets/osechi/source/polycam_osechi_adjusted.gltf" crossorigin="anonymous"></a-asset-item>
+            <a-asset-item id="salmon-sushi-model" src="assets/salmon_nigiri_sushi/salmon.gltf" crossorigin="anonymous"></a-asset-item>
         </a-assets>
 
         <a-camera position="0 1.2 0"></a-camera>
 
         <a-entity id="menu-container" visible="false">
-            <a-gltf-model id="journal" src="#journal-model" scale="0.01 0.01 0.01" rotation="-90 0 0"></a-gltf-model>
-            
-            <a-plane id="food-display" position="0 0.02 0.15" width="0.3" height="0.2" rotation="-90 0 0" material="src: #pasta-video"></a-plane>
+            <a-gltf-model id="journal" src="#journal-model" scale="0.1 0.1 0.1" rotation="0 0 0"></a-gltf-model>
+            <a-entity id="food-items-wrapper" position="0 0.05 0">
+                <a-gltf-model id="osechi" class="food-item" src="#osechi-model" scale="0.2 0.2 0.2" visible="false"></a-gltf-model>
+                <a-gltf-model id="salmon-sushi" class="food-item" src="#salmon-sushi-model" scale="0.2 0.2 0.2" visible="false"></a-gltf-model>
+            </a-entity>
         </a-entity>
 
-        <a-entity id="reticle"
-            cursor="fuse: false; rayOrigin: mouse;"
-            raycaster="objects: .raycast-plane"
-            position="0 0 -1"
-            scale="0.3 0.3 0.3"
-            geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.02"
-            material="color: #4CC3D9; shader: flat; opacity: 0.8">
-        </a-entity>
-
+        <a-entity id="reticle" visible="false" scale="0.3 0.3 0.3" geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.02" material="color: #4CC3D9; shader: flat; opacity: 0.8"></a-entity>
     </a-scene>
 
     <script>
-        // --- PLACEHOLDER MENU DATA ---
-        const menuData = {
-            'italian': ['#pasta-video', '#pizza-video'],
-            'chinese': [], // You can add IDs for chinese food videos here
-            'default': ['#pasta-video'] 
-        };
-
-        let currentFoodIndex = 0;
-        let activeMenu = [];
-
-        window.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', () => {
+            const loader = document.getElementById('loader');
+            const arPrompt = document.getElementById('ar-prompt');
             const sceneEl = document.querySelector('a-scene');
             const menuContainer = document.getElementById('menu-container');
-            const foodDisplay = document.getElementById('food-display');
+            const assets = document.querySelector('a-assets');
 
-            // --- Read the 'cuisine' parameter from the URL ---
-            const urlParams = new URLSearchParams(window.location.search);
-            const cuisine = urlParams.get('cuisine') || 'default';
-            activeMenu = menuData[cuisine];
-            foodDisplay.setAttribute('material', 'src', activeMenu[0]);
+            const menuData = { 'japanese': ['osechi', 'salmon-sushi'], 'default': ['osechi'] };
+            let currentFoodIndex = 0;
+            let activeMenuIds = [];
 
-            // --- Plane Detection & Placement ---
-            sceneEl.addEventListener('enter-vr', () => {
-                sceneEl.xrSession.addEventListener('select', (event) => {
-                    if (!menuContainer.getAttribute('visible')) {
-                        const reticle = document.getElementById('reticle');
-                        const position = reticle.getAttribute('position');
-                        menuContainer.setAttribute('position', position);
-                        menuContainer.setAttribute('visible', 'true');
-                        reticle.setAttribute('visible', 'false');
-                    }
+            function updateFoodDisplay() {
+                document.querySelectorAll('.food-item').forEach(item => item.setAttribute('visible', 'false'));
+                const activeModelId = activeMenuIds[currentFoodIndex];
+                const activeModel = document.getElementById(activeModelId);
+                if (activeModel) {
+                    activeModel.setAttribute('visible', 'true');
+                } else {
+                    console.error("DEBUG: Could not find model in scene with ID:", activeModelId);
+                }
+            }
+            
+            assets.addEventListener('loaded', () => {
+                console.log("DEBUG: All assets have been processed by the loader.");
+                loader.style.display = 'none';
+                initializeAR();
+            });
+
+            document.querySelectorAll('a-asset-item').forEach(asset => {
+                asset.addEventListener('error', (e) => {
+                    console.error(`---!!! CRITICAL ASSET ERROR !!!---
+                    Asset with ID '${e.target.id}' failed to load.
+                    Path specified in HTML: '${e.target.getAttribute('src')}'
+                    
+                    TROUBLESHOOTING:
+                    1. Is the file path above PERFECTLY correct?
+                    2. Does the file exist at that location in your GitHub repo?
+                    3. Is the filename (e.g., 'journal.gltf') EXACTLY right? Check for typos.
+                    4. Are all its required .bin and texture files in the same folder?
+                    ---------------------------------`);
+                    loader.innerHTML = `Error loading: <b>${e.target.id}</b>.<br>Check console for details.`;
                 });
             });
 
-            // --- Swipe/Carousel Logic ---
-            let touchStartX = 0;
-            document.body.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
-            document.body.addEventListener('touchend', e => {
-                let touchEndX = e.changedTouches[0].clientX;
-                if (Math.abs(touchStartX - touchEndX) < 50) return;
+            function initializeAR() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const cuisine = urlParams.get('cuisine') || 'default';
+                activeMenuIds = menuData[cuisine];
+                const reticle = document.getElementById('reticle');
+                let hitTestSource = null;
 
-                if (touchEndX < touchStartX) { // Swiped Left
-                    currentFoodIndex = (currentFoodIndex + 1) % activeMenu.length;
-                } else { // Swiped Right
-                    currentFoodIndex = (currentFoodIndex - 1 + activeMenu.length) % activeMenu.length;
+                sceneEl.addEventListener('enter-vr', () => {
+                    console.log("DEBUG: Entered AR mode.");
+                    arPrompt.style.display = 'flex';
+                    const session = sceneEl.xrSession;
+
+                    session.requestReferenceSpace('viewer').then((viewerSpace) => {
+                        session.requestHitTestSource({ space: viewerSpace })
+                            .then((source) => {
+                                console.log("DEBUG: Hit test source obtained successfully.");
+                                hitTestSource = source;
+                            })
+                            .catch(err => console.error("DEBUG: Error obtaining hit test source.", err));
+                    });
+
+                    session.addEventListener('select', onSelect);
+                });
+
+                function onSelect() {
+                    if (reticle.getAttribute('visible') && !menuContainer.getAttribute('visible')) {
+                        console.log("DEBUG: Screen selected to place object.");
+                        const position = reticle.getAttribute('position');
+                        menuContainer.setAttribute('position', position);
+                        menuContainer.setAttribute('visible', 'true');
+                        
+                        reticle.setAttribute('visible', 'false');
+                        arPrompt.style.display = 'none';
+                        if (hitTestSource) hitTestSource.cancel();
+                        hitTestSource = null;
+                        
+                        updateFoodDisplay();
+                    }
                 }
-                foodDisplay.setAttribute('material', 'src', activeMenu[currentFoodIndex]);
-            });
+
+                sceneEl.addEventListener('tick', () => {
+                    if (!sceneEl.is('ar-mode') || !hitTestSource) return;
+                    const frame = sceneEl.frame;
+                    if (!frame) return;
+
+                    const hitTestResults = frame.getHitTestResults(hitTestSource);
+                    if (hitTestResults.length > 0) {
+                        const hit = hitTestResults[0];
+                        const pose = hit.getPose(sceneEl.renderer.xr.getReferenceSpace());
+                        reticle.setAttribute('visible', true);
+                        reticle.setAttribute('position', pose.transform.position);
+                    } else {
+                        reticle.setAttribute('visible', false);
+                    }
+                });
+
+                let touchStartX = 0;
+                document.body.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+                document.body.addEventListener('touchend', e => {
+                    if (!menuContainer.getAttribute('visible')) return;
+                    let touchEndX = e.changedTouches[0].clientX;
+                    if (Math.abs(touchStartX - touchEndX) < 50) return;
+
+                    if (touchEndX < touchStartX) {
+                        currentFoodIndex = (currentFoodIndex + 1) % activeMenuIds.length;
+                    } else {
+                        currentFoodIndex = (currentFoodIndex - 1 + activeMenuIds.length) % activeMenuIds.length;
+                    }
+                    updateFoodDisplay();
+                });
+            }
         });
     </script>
 </body>
 </html>
+
+
